@@ -1,0 +1,1099 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>天平找次品互动程序</title>
+  <style>
+    :root {
+      --blue: #2c65e8;
+      --blue-dark: #1f469f;
+      --line: #d8e3f7;
+      --shadow: 0 18px 42px rgba(30, 60, 120, 0.12);
+      --green: #1f9d62;
+      --orange: #f39c12;
+      --red: #d7263d;
+      
+      /* 丝滑动画缓动函数 */
+      --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+      --ease-bounce: cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      --ease-inout: cubic-bezier(0.87, 0, 0.13, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      margin: 0;
+      font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: #20304a;
+      background: #eef4ff;
+    }
+
+    .app {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 22px;
+    }
+
+    .shell {
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid rgba(216, 227, 247, 0.9);
+      border-radius: 28px;
+      box-shadow: var(--shadow);
+      padding: 22px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 18px;
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: 32px;
+      color: var(--blue-dark);
+    }
+
+    .topbar p {
+      margin: 8px 0 0;
+      color: #5d6d88;
+      font-size: 15px;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .pill-input-group {
+      display: flex;
+      align-items: center;
+      background: #eef4ff;
+      border: 1px solid #dbe7ff;
+      border-radius: 14px;
+      padding: 4px;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .pill-input-group label {
+      font-size: 13px;
+      font-weight: 800;
+      color: var(--blue-dark);
+      padding: 0 8px;
+    }
+
+    .pill-input-group input {
+      width: 50px;
+      border: 0;
+      background: #fff;
+      border-radius: 10px;
+      padding: 8px;
+      font-size: 14px;
+      font-weight: 900;
+      color: var(--blue-dark);
+      text-align: center;
+      outline: none;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    .pill-input-group button {
+      padding: 8px 14px;
+      font-size: 13px;
+      margin-left: 4px;
+      box-shadow: 0 4px 8px rgba(44, 101, 232, 0.15);
+    }
+
+    button {
+      border: 0;
+      border-radius: 14px;
+      padding: 12px 20px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      color: #fff;
+      background: linear-gradient(180deg, #3c7bff, #2c65e8);
+      box-shadow: 0 10px 18px rgba(44, 101, 232, 0.22);
+      transition: all 0.3s var(--ease-spring);
+      position: relative;
+      overflow: hidden;
+    }
+
+    button::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, rgba(255,255,255,0.2), transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    button:hover {
+      transform: translateY(-2px) scale(1.02);
+      box-shadow: 0 14px 24px rgba(44, 101, 232, 0.32);
+    }
+
+    button:hover::before {
+      opacity: 1;
+    }
+
+    button:active {
+      transform: translateY(0) scale(0.98);
+      box-shadow: 0 6px 12px rgba(44, 101, 232, 0.22);
+    }
+
+    button.secondary {
+      color: var(--blue-dark);
+      background: #eef4ff;
+      border: 1px solid #dbe7ff;
+      box-shadow: none;
+    }
+
+    button.secondary:hover {
+      background: #e5eeff;
+      box-shadow: 0 4px 12px rgba(44, 101, 232, 0.12);
+    }
+
+    .stage {
+      position: relative;
+      min-height: 760px;
+    }
+
+    /* 统一游戏区域 - 合并天平区和零件区 */
+    .game-area {
+      position: relative;
+      width: 100%;
+      height: 640px;
+      border-radius: 24px;
+      overflow: hidden;
+      background: #c5d8e9; /* 匹配参考图的浅蓝色背景 */
+      border: 1px solid #adc4d8;
+    }
+
+    /* 天平视觉区域 - 上半部分 */
+    .scale-section {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 420px;
+      pointer-events: none;
+    }
+
+    .scale-visual {
+      position: absolute;
+      top: 60px;
+      left: 0;
+      right: 0;
+      height: 400px;
+      z-index: 1;
+    }
+
+    .beam-wrap {
+      position: absolute;
+      left: 50%;
+      top: 40px;
+      width: 600px;
+      height: 300px;
+      transform: translateX(-50%);
+    }
+
+    /* 横梁：扁平蓝绿色调 */
+    .beam {
+      position: absolute;
+      left: 50%;
+      top: 100px;
+      width: 480px;
+      height: 12px;
+      transform: translateX(-50%) rotate(0deg);
+      transform-origin: center center;
+      transition: transform 0.6s var(--ease-spring);
+      background: #62a1c0;
+      border-radius: 2px;
+      box-shadow: inset 0 -2px 0 rgba(0,0,0,0.1);
+      z-index: 2;
+    }
+
+    /* 刻度盘容器 */
+    .indicator-dial {
+      position: absolute;
+      left: 50%;
+      top: 100px;
+      transform: translate(-50%, -100%);
+      width: 140px;
+      height: 70px;
+      background: #fdfae1;
+      border: 2px solid #62a1c0;
+      border-bottom: none;
+      border-radius: 70px 70px 0 0;
+      z-index: 1;
+      overflow: hidden;
+    }
+
+    /* 刻度线 */
+    .dial-lines {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 100%;
+      height: 100%;
+      transform: translateX(-50%);
+    }
+
+    .dial-lines::before {
+      content: "";
+      position: absolute;
+      bottom: -10px;
+      left: 50%;
+      width: 120px;
+      height: 120px;
+      border: 1px solid #8baebf;
+      border-radius: 50%;
+      transform: translateX(-50%);
+    }
+
+    /* 指针 */
+    .needle {
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      width: 4px;
+      height: 55px;
+      background: #d7263d;
+      transform-origin: bottom center;
+      transform: translateX(-50%) rotate(0deg);
+      transition: transform 0.6s var(--ease-spring);
+      border-radius: 2px;
+      z-index: 3;
+    }
+
+    /* 中心圆盘 */
+    .pivot-cap {
+      position: absolute;
+      left: 50%;
+      top: 100px;
+      transform: translate(-50%, -50%);
+      width: 54px;
+      height: 54px;
+      background: #89b9d0;
+      border: 4px solid #62a1c0;
+      border-radius: 50%;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      z-index: 10;
+    }
+    
+    .pivot-cap::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 16px;
+      height: 16px;
+      background: #62a1c0;
+      border-radius: 50%;
+    }
+
+    /* 立柱：参考图块状设计 */
+    .pillar {
+      position: absolute;
+      left: 50%;
+      top: 100px;
+      transform: translateX(-50%);
+      width: 80px;
+      height: 120px;
+      background: #a8ccd7;
+      border-radius: 20px 20px 0 0;
+      z-index: 0;
+    }
+
+    /* 底座：阶梯块状 */
+    .base {
+      position: absolute;
+      left: 50%;
+      top: 210px;
+      transform: translateX(-50%);
+      width: 260px;
+      height: 60px;
+      z-index: 0;
+    }
+    
+    .base::before {
+      content: "";
+      position: absolute;
+      left: 30px;
+      right: 30px;
+      top: 0;
+      height: 30px;
+      background: #89b9d0;
+      border-radius: 4px;
+    }
+    
+    .base::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 30px;
+      background: #62a1c0;
+      border-radius: 30px 30px 4px 4px;
+    }
+
+    /* 结果横幅 */
+    .result-banner {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 24px;
+      min-width: 200px;
+      text-align: center;
+      border-radius: 20px;
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid #62a1c0;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      font-size: 18px;
+      font-weight: 800;
+      z-index: 100;
+      color: #2c3e50;
+      transition: all 0.4s var(--ease-spring);
+    }
+
+    /* 托盘：更明显的碟状设计 */
+    .drop-zone {
+      --lift: 0px;
+      --zone-scale: 1;
+      position: absolute;
+      width: 190px;
+      height: 24px;
+      background: linear-gradient(180deg, #fdfae1 0%, #f5f5c5 100%);
+      border: 3px solid #62a1c0;
+      border-radius: 0 0 40px 40px; /* 碟状底部圆角 */
+      transition: all 0.35s var(--ease-spring);
+      z-index: 5;
+      box-shadow: 
+        0 8px 20px rgba(0,0,0,0.1),
+        inset 0 4px 4px rgba(255,255,255,0.6);
+      transform: translateY(var(--lift)) scale(var(--zone-scale));
+    }
+
+    /* 托盘上沿装饰 */
+    .drop-zone::before {
+      content: "";
+      position: absolute;
+      left: -3px;
+      right: -3px;
+      top: -6px;
+      height: 8px;
+      background: #fdfae1;
+      border: 3px solid #62a1c0;
+      border-radius: 50% / 4px;
+      z-index: 1;
+    }
+
+    /* 托盘位置 */
+    .drop-zone.left {
+      left: calc(50% - 285px);
+      top: 195px;
+    }
+
+    .drop-zone.right {
+      left: calc(50% + 95px);
+      top: 195px;
+    }
+
+    .pan-info {
+      position: absolute;
+      top: -38px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 4px 12px;
+      border-radius: 20px;
+      background: #62a1c0;
+      border: 2px solid #fff;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 900;
+      white-space: nowrap;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      transition: all 0.3s var(--ease-smooth);
+      z-index: 10;
+    }
+
+    .pan-empty {
+      position: absolute;
+      left: 50%;
+      bottom: -32px;
+      transform: translateX(-50%);
+      font-size: 11px;
+      color: #5a8fb4;
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.5);
+      padding: 2px 10px;
+      border-radius: 10px;
+      pointer-events: none;
+      animation: pan-hint 2s infinite ease-in-out;
+    }
+
+    @keyframes pan-hint {
+      0%, 100% { opacity: 0.6; transform: translateX(-50%) translateY(0); }
+      50% { opacity: 1; transform: translateX(-50%) translateY(-3px); }
+    }
+
+    /* 零件区：改为浅灰蓝色背景 */
+    .parts-area {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 220px;
+      background: #b0c9df;
+      border-top: 2px solid #89b9d0;
+      border-radius: 0 0 24px 24px;
+      z-index: 2;
+    }
+
+    .parts-title {
+      position: absolute;
+      top: -12px;
+      left: 20px;
+      font-size: 16px;
+      font-weight: 800;
+      color: #fff;
+      background: linear-gradient(135deg, var(--blue-dark), var(--blue));
+      padding: 6px 16px;
+      border-radius: 20px;
+      box-shadow: 0 4px 12px rgba(44, 101, 232, 0.3);
+      z-index: 10;
+    }
+
+    .parts-title::before {
+      content: "📦 ";
+      font-size: 14px;
+    }
+
+    /* 药丸物品样式 - 重新设计为胶囊状 */
+    .item {
+      position: absolute;
+      width: 76px;
+      height: 32px;
+      border-radius: 16px;
+      background: #ffffff;
+      border: 2px solid #5a8fb4;
+      box-shadow: 
+        0 4px 10px rgba(45, 75, 115, 0.15),
+        inset 0 -2px 0 rgba(0,0,0,0.05);
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 0;
+      cursor: grab;
+      touch-action: none;
+      z-index: 20;
+      overflow: hidden;
+      transition: 
+        transform 0.3s var(--ease-spring),
+        box-shadow 0.3s var(--ease-smooth),
+        border-color 0.25s ease;
+    }
+
+    /* 胶囊左半部分红色填充 */
+    .item::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 42%;
+      height: 100%;
+      background: linear-gradient(135deg, #ff6b6b, #ee5253);
+      border-right: 1px solid rgba(0,0,0,0.1);
+      z-index: 1;
+    }
+
+    .item:hover {
+      transform: translateY(-2px) scale(1.05);
+      box-shadow: 0 8px 16px rgba(45, 75, 115, 0.25);
+      border-color: #3498db;
+    }
+
+    .item.dragging {
+      cursor: grabbing;
+      transform: scale(1.15);
+      box-shadow: 0 12px 24px rgba(45, 75, 115, 0.35);
+      z-index: 100;
+    }
+
+    .item.selected {
+      border-color: #e67e22;
+      box-shadow: 0 0 0 4px rgba(230, 126, 34, 0.2), 0 8px 16px rgba(0,0,0,0.1);
+      transform: translateY(-3px) scale(1.08);
+    }
+
+    /* 编号放在红色部分 */
+    .item-name {
+      position: relative;
+      font-size: 15px;
+      font-weight: 900;
+      color: #ffffff;
+      z-index: 2;
+      width: 42%; /* 与 item::before 宽度一致 */
+      text-align: center;
+      text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 重量放在白色部分 */
+    .item-weight {
+      position: relative;
+      font-size: 11px;
+      font-weight: 800;
+      color: #4a6fa1;
+      z-index: 2;
+      flex: 1;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* 药丸表面的高光效果 */
+    .pill-shine {
+      position: absolute;
+      top: 4px;
+      left: 8px;
+      right: 8px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.3);
+      border-radius: 3px;
+      z-index: 3;
+      pointer-events: none;
+    }
+
+    .item.defect .item-weight {
+      color: #e74c3c;
+    }
+
+    .item.defect {
+      border-color: #e74c3c;
+    }
+
+    /* 托盘内的缩小样式 */
+    .item.in-pan {
+      width: 40px;
+      height: 18px;
+      border-radius: 9px;
+      border-width: 1px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .item.in-pan::before {
+      width: 42%;
+      border-right: none;
+    }
+
+    .item.in-pan .item-name,
+    .item.in-pan .item-weight,
+    .item.in-pan .pill-shine {
+      display: none;
+    }
+
+    /* 粒子效果 */
+    .particle {
+      position: absolute;
+      pointer-events: none;
+      border-radius: 50%;
+      animation: particle-fade 0.8s var(--ease-smooth) forwards;
+    }
+
+    @keyframes particle-fade {
+      0% {
+        transform: translate(0, 0) scale(1);
+        opacity: 1;
+      }
+      100% {
+        transform: translate(var(--tx), var(--ty)) scale(0);
+        opacity: 0;
+      }
+    }
+
+    /* 波纹效果 */
+    .ripple {
+      position: absolute;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(44, 101, 232, 0.3), transparent 70%);
+      pointer-events: none;
+      animation: ripple-expand 0.6s var(--ease-smooth) forwards;
+    }
+
+    @keyframes ripple-expand {
+      0% {
+        transform: scale(0);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(4);
+        opacity: 0;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        padding: 12px;
+      }
+
+      .topbar h1 {
+        font-size: 26px;
+      }
+
+      .drop-zone.left {
+        left: calc(50% - 200px);
+      }
+
+      .drop-zone.right {
+        left: calc(50% + 40px);
+      }
+      
+      .game-area {
+        height: 580px;
+      }
+      
+      .parts-area {
+        height: 200px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="shell">
+      <div class="topbar">
+        <div>
+          <h1>天平找次品互动程序</h1>
+          <p>拖动零件到左右托盘，自动显示平衡或倾斜。</p>
+        </div>
+        <div class="controls">
+          <div class="pill-input-group">
+            <label>数量:</label>
+            <input type="number" id="pillCountInput" value="9" min="2" max="27">
+            <button id="applyCountBtn">生成</button>
+          </div>
+          <button id="resetBtn">重置</button>
+          <button id="toggleBtn" class="secondary">显示重量</button>
+        </div>
+      </div>
+
+      <div class="game-area" id="gameArea">
+        <!-- 天平视觉区域 - 上半部分 -->
+        <div class="scale-section">
+          <div class="result-banner" id="resultBanner">当前状态：平衡</div>
+          
+          <div class="scale-visual">
+            <div class="beam-wrap">
+              <div class="indicator-dial">
+                <div class="dial-lines"></div>
+                <div class="needle" id="needle"></div>
+              </div>
+              <div class="pivot-cap"></div>
+              <div class="beam" id="beam"></div>
+              <div class="pillar"></div>
+              <div class="base"></div>
+            </div>
+          </div>
+
+          <div class="drop-zone left" id="leftPan" data-zone="left">
+            <div class="pan-info" id="leftPanInfo">左盘 0g</div>
+            <div class="pan-empty" id="leftEmpty">放到左盘</div>
+          </div>
+
+          <div class="drop-zone right" id="rightPan" data-zone="right">
+            <div class="pan-info" id="rightPanInfo">右盘 0g</div>
+            <div class="pan-empty" id="rightEmpty">放到右盘</div>
+          </div>
+        </div>
+
+        <!-- 零件区 - 下半部分 -->
+        <div class="parts-area" id="partsArea">
+          <div class="parts-title">零件区</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const items = [];
+    let showWeights = false;
+    let defectId = 4;
+    let dragState = null;
+
+    const gameArea = document.getElementById("gameArea");
+    const partsArea = document.getElementById("partsArea");
+    const leftPan = document.getElementById("leftPan");
+    const rightPan = document.getElementById("rightPan");
+    const beam = document.getElementById("beam");
+    const needle = document.getElementById("needle");
+    const resultBanner = document.getElementById("resultBanner");
+    const leftPanInfo = document.getElementById("leftPanInfo");
+    const rightPanInfo = document.getElementById("rightPanInfo");
+    const leftEmpty = document.getElementById("leftEmpty");
+    const rightEmpty = document.getElementById("rightEmpty");
+    const toggleBtn = document.getElementById("toggleBtn");
+    const pillCountInput = document.getElementById("pillCountInput");
+    const applyCountBtn = document.getElementById("applyCountBtn");
+    let selectedItem = null;
+
+    function makeItem(id) {
+      const el = document.createElement("div");
+      el.className = "item";
+      el.dataset.id = String(id);
+      el.dataset.zone = "bank";
+      el.innerHTML = `
+        <span class="item-name">${id}</span>
+        <span class="item-weight"></span>
+        <div class="pill-shine"></div>
+      `;
+      el.addEventListener("pointerdown", onPointerDown);
+      gameArea.appendChild(el);
+      return { id, weight: 100, zone: "bank", el };
+    }
+
+    function initItems(count = 9) {
+      // 清除旧药丸
+      items.forEach(item => item.el.remove());
+      items.length = 0;
+      
+      for (let i = 1; i <= count; i += 1) {
+        items.push(makeItem(i));
+      }
+      randomizeDefect();
+      layoutAll();
+      updateScale();
+    }
+
+    function randomizeDefect() {
+      if (items.length === 0) return;
+      const randomIdx = Math.floor(Math.random() * items.length);
+      const randomId = items[randomIdx].id;
+      applyDefect(randomId);
+    }
+
+    function applyDefect(id) {
+      defectId = id;
+      items.forEach((item) => {
+        item.weight = item.id === defectId ? 90 : 100;
+        item.el.classList.toggle("defect", item.id === defectId && showWeights);
+        item.el.querySelector(".item-weight").textContent = showWeights ? `${item.weight}g` : "?";
+      });
+    }
+
+    function getZoneItems(zone) {
+      return items.filter((item) => item.zone === zone);
+    }
+
+    function positionInZone(item, zone, index) {
+      const gameRect = gameArea.getBoundingClientRect();
+      
+      if (zone === "bank") {
+        // 零件区在底部
+        const partsRect = partsArea.getBoundingClientRect();
+        const cols = 9;
+        const gapX = 78;
+        const gapY = 44;
+        const startX = 10;
+        const startY = partsRect.top - gameRect.top + 45;
+        const col = index % cols;
+        const row = Math.floor(index / cols);
+        item.el.style.left = `${startX + col * gapX}px`;
+        item.el.style.top = `${startY + row * gapY}px`;
+        return;
+      }
+
+      // 托盘位置
+      const target = zone === "left" ? leftPan : rightPan;
+      const targetRect = target.getBoundingClientRect();
+      
+      const isInPan = item.el.classList.contains("in-pan");
+      const perRow = isInPan ? 4 : 2; 
+      const gapX = isInPan ? 44 : 74;
+      const gapY = isInPan ? 22 : 44;
+      const startX = targetRect.left - gameRect.left + (isInPan ? 8 : 10);
+      const startY = targetRect.top - gameRect.top + (isInPan ? -4 : 2);
+      
+      const col = index % perRow;
+      const row = Math.floor(index / perRow);
+      item.el.style.left = `${startX + col * gapX}px`;
+      item.el.style.top = `${startY + row * gapY}px`;
+    }
+
+    function layoutAll() {
+      getZoneItems("bank").forEach((item, index) => positionInZone(item, "bank", index));
+      getZoneItems("left").forEach((item, index) => positionInZone(item, "left", index));
+      getZoneItems("right").forEach((item, index) => positionInZone(item, "right", index));
+      updateEmptyState();
+    }
+
+    function totalWeight(zone) {
+      return getZoneItems(zone).reduce((sum, item) => sum + item.weight, 0);
+    }
+
+    function updateScale() {
+      const left = totalWeight("left");
+      const right = totalWeight("right");
+      const delta = left - right;
+      const angle = Math.max(-12, Math.min(12, -delta / 8));
+      const leftOffset = Math.max(-20, Math.min(20, delta / 4));
+      const rightOffset = -leftOffset;
+
+      leftPanInfo.textContent = `左盘 ${left}g`;
+      rightPanInfo.textContent = `右盘 ${right}g`;
+      updateEmptyState();
+      
+      beam.style.transform = `translateX(-50%) rotate(${angle}deg)`;
+      needle.style.transform = `translateX(-50%) rotate(${-angle * 2.5}deg)`;
+      leftPan.style.setProperty("--lift", `${leftOffset}px`);
+      rightPan.style.setProperty("--lift", `${rightOffset}px`);
+
+      if (left === right) {
+        resultBanner.textContent = "当前状态：平衡";
+        resultBanner.className = "result-banner";
+      } else if (left > right) {
+        resultBanner.textContent = "当前状态：左边下沉，右边翘起";
+        resultBanner.className = "result-banner left";
+      } else {
+        resultBanner.textContent = "当前状态：右边下沉，左边翘起";
+        resultBanner.className = "result-banner right";
+      }
+    }
+
+    function updateEmptyState() {
+      leftEmpty.style.display = getZoneItems("left").length ? "none" : "block";
+      rightEmpty.style.display = getZoneItems("right").length ? "none" : "block";
+    }
+
+    function setSelected(item) {
+      selectedItem = item;
+      items.forEach((entry) => entry.el.classList.toggle("selected", entry === item));
+      leftPan.classList.toggle("active", !!item);
+      rightPan.classList.toggle("active", !!item);
+    }
+
+    function clearSelected() {
+      selectedItem = null;
+      items.forEach((entry) => entry.el.classList.remove("selected"));
+      leftPan.classList.remove("active");
+      rightPan.classList.remove("active");
+    }
+
+    function moveItemToZone(item, zone) {
+      item.zone = zone;
+      
+      const isInPan = (zone === "left" || zone === "right");
+      item.el.classList.toggle("in-pan", isInPan);
+      
+      // 在托盘上时，如果不是 in-pan 状态则显示数据
+      // 但现在要求在托盘上不显示数据和克数，所以通过 .in-pan 的 CSS 隐藏了文字
+      const weightEl = item.el.querySelector(".item-weight");
+      weightEl.textContent = showWeights ? `${item.weight}g` : "?";
+      
+      updateScale();
+      layoutAll();
+    }
+
+    function createParticles(x, y, color = "#3c7bff") {
+      const particleCount = 6;
+      for (let i = 0; i < particleCount; i++) {
+        const particle = document.createElement("div");
+        particle.className = "particle";
+        particle.style.left = x + "px";
+        particle.style.top = y + "px";
+        particle.style.width = (4 + Math.random() * 6) + "px";
+        particle.style.height = particle.style.width;
+        particle.style.background = color;
+        const angle = (Math.PI * 2 * i) / particleCount;
+        const distance = 20 + Math.random() * 20;
+        particle.style.setProperty("--tx", Math.cos(angle) * distance + "px");
+        particle.style.setProperty("--ty", Math.sin(angle) * distance + "px");
+        document.body.appendChild(particle);
+        setTimeout(() => particle.remove(), 800);
+      }
+    }
+
+    function createRipple(x, y) {
+      const ripple = document.createElement("div");
+      ripple.className = "ripple";
+      ripple.style.left = (x - 10) + "px";
+      ripple.style.top = (y - 10) + "px";
+      ripple.style.width = "20px";
+      ripple.style.height = "20px";
+      document.body.appendChild(ripple);
+      setTimeout(() => ripple.remove(), 600);
+    }
+
+    function onPointerDown(event) {
+      const el = event.currentTarget;
+      const item = items.find((entry) => entry.el === el);
+      if (!item) return;
+
+      if (selectedItem && selectedItem !== item) {
+        clearSelected();
+      }
+
+      const rect = el.getBoundingClientRect();
+      dragState = {
+        item,
+        offsetX: event.clientX - rect.left,
+        offsetY: event.clientY - rect.top,
+        startX: event.clientX,
+        startY: event.clientY,
+        moved: false,
+      };
+
+      el.classList.add("dragging");
+      el.setPointerCapture(event.pointerId);
+      el.addEventListener("pointermove", onPointerMove);
+      el.addEventListener("pointerup", onPointerUp);
+      el.addEventListener("pointercancel", onPointerUp);
+    }
+
+    function onPointerMove(event) {
+      if (!dragState) return;
+      const { item, offsetX, offsetY } = dragState;
+      if (Math.abs(event.clientX - dragState.startX) > 3 || Math.abs(event.clientY - dragState.startY) > 3) {
+        dragState.moved = true;
+      }
+      
+      // 使用gameArea的相对坐标
+      const gameRect = gameArea.getBoundingClientRect();
+      const left = event.clientX - gameRect.left - offsetX;
+      const top = event.clientY - gameRect.top - offsetY;
+
+      item.el.style.left = `${left}px`;
+      item.el.style.top = `${top}px`;
+
+      // 检测当前在哪个区域上方
+      const zone = detectZone(event.clientX, event.clientY);
+      leftPan.classList.toggle("active", zone === "left");
+      rightPan.classList.toggle("active", zone === "right");
+    }
+
+    function onPointerUp(event) {
+      if (!dragState) return;
+      const { item, moved } = dragState;
+      item.el.classList.remove("dragging");
+      item.el.releasePointerCapture(event.pointerId);
+      item.el.removeEventListener("pointermove", onPointerMove);
+      item.el.removeEventListener("pointerup", onPointerUp);
+      item.el.removeEventListener("pointercancel", onPointerUp);
+
+      if (!moved) {
+        if (selectedItem === item) {
+          clearSelected();
+        } else {
+          setSelected(item);
+        }
+        dragState = null;
+        layoutAll();
+        return;
+      }
+
+      const zone = detectZone(event.clientX, event.clientY);
+      
+      if (zone !== item.zone) {
+        createRipple(event.clientX, event.clientY);
+        if (zone === "left" || zone === "right") {
+          createParticles(event.clientX, event.clientY, zone === "left" ? "#d7263d" : "#f39c12");
+        } else {
+          createParticles(event.clientX, event.clientY, "#2c65e8");
+        }
+      }
+      
+      moveItemToZone(item, zone);
+      leftPan.classList.remove("active");
+      rightPan.classList.remove("active");
+      clearSelected();
+      dragState = null;
+    }
+
+    function detectZone(x, y) {
+      if (inside(x, y, leftPan.getBoundingClientRect())) return "left";
+      if (inside(x, y, rightPan.getBoundingClientRect())) return "right";
+      return "bank";
+    }
+
+    function inside(x, y, rect) {
+      return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+    }
+
+    function resetLayout() {
+      items.forEach((item) => {
+        item.zone = "bank";
+        item.el.classList.remove("in-pan");
+      });
+      showWeights = false; // 重置时隐藏重量
+      toggleBtn.textContent = "显示重量";
+      randomizeDefect(); // 重新随机生成次品
+      clearSelected();
+      layoutAll();
+      updateScale();
+    }
+
+    document.getElementById("resetBtn").addEventListener("click", () => {
+      const btn = document.getElementById("resetBtn");
+      btn.style.transform = "scale(0.95)";
+      setTimeout(() => {
+        btn.style.transform = "";
+      }, 100);
+      resetLayout();
+    });
+
+    toggleBtn.addEventListener("click", () => {
+      showWeights = !showWeights;
+      items.forEach((item) => {
+        item.el.classList.toggle("defect", item.id === defectId && showWeights);
+        item.el.querySelector(".item-weight").textContent = showWeights ? `${item.weight}g` : "?";
+      });
+      toggleBtn.textContent = showWeights ? "隐藏重量" : "显示重量";
+    });
+
+    applyCountBtn.addEventListener("click", () => {
+      let count = parseInt(pillCountInput.value);
+      if (isNaN(count) || count < 2) count = 2;
+      if (count > 27) count = 27; // 零件区最大容量限制
+      pillCountInput.value = count;
+      initItems(count);
+      clearSelected();
+    });
+
+    leftPan.addEventListener("click", () => {
+      if (!selectedItem) return;
+      moveItemToZone(selectedItem, "left");
+      clearSelected();
+    });
+
+    rightPan.addEventListener("click", () => {
+      if (!selectedItem) return;
+      moveItemToZone(selectedItem, "right");
+      clearSelected();
+    });
+
+    window.addEventListener("resize", () => {
+      layoutAll();
+      updateScale();
+    });
+
+    initItems();
+  </script>
+</body>
+</html>
